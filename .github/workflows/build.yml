@@ -1,4 +1,4 @@
-name: android-matrix-build
+name: build
 
 on:
   schedule:
@@ -30,26 +30,36 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Android NDK
+      - name: Cache NDK
+        id: cache-ndk
+        uses: actions/cache@v4
+        with:
+          path: $HOME/android-ndk-r26d
+          key: ndk-r26d-linux
+
+      - name: Install NDK (if not cached)
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
           wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
           unzip -q android-ndk-r26d-linux.zip -d $HOME
-          echo "NDK=$HOME/android-ndk-r26d" >> $GITHUB_ENV
 
-      - name: Build binary (${{ matrix.arch }})
+      - name: Build (${{ matrix.arch }})
         run: |
-          DATE=$(date '+%Y-%m-%d')
+          DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.tool }} \
+          $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.tool }} \
             main.c -o ${{ matrix.out }} \
-            -Os -s \
+            -Os \
             -ffunction-sections -fdata-sections \
             -fno-asynchronous-unwind-tables \
             -fno-unwind-tables \
             -Wl,--gc-sections \
             -DBUILD_DATE="\"$DATE\""
+
+          $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
+            ${{ matrix.out }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -70,17 +80,17 @@ jobs:
         with:
           path: binaries
 
-      - name: Flatten binaries folder
+      - name: Flatten binaries
         run: |
           mv binaries/*/* binaries/ 2>/dev/null || true
           rm -rf binaries/*/ 2>/dev/null || true
 
-      - name: Commit and push
+      - name: Commit & Push (always)
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git add binaries
 
-          git commit -m "update binaries $(date '+%Y-%m-%d')" || exit 0
+          git commit --allow-empty -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')"
           git push
