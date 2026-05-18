@@ -1,6 +1,6 @@
 set -e
-CACHE_DIR="/cache"
-[ -w "$CACHE_DIR" ] || CACHE_DIR="/data/local/tmp"
+CACHE_DIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}"
+mkdir -p "$CACHE_DIR"
 BIN="$CACHE_DIR/audio_patcher"
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -17,11 +17,10 @@ case "$ARCH" in
 esac
 echo "Detected architecture: $ARCH"
 echo "Downloading binary..."
-
 if command -v curl >/dev/null 2>&1; then
-    curl -L -o "$BIN" "$URL"
+    curl -fsSL -o "$BIN" "$URL"
 elif command -v wget >/dev/null 2>&1; then
-    wget -O "$BIN" "$URL"
+    wget -qO "$BIN" "$URL"
 else
     echo "curl or wget is required"
     exit 1
