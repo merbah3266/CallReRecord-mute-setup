@@ -72,7 +72,9 @@ jobs:
       - run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+          rm -rf binaries
           mkdir -p binaries
-          git add binaries
+          cp -r artifacts/* binaries/ 2>/dev/null || true
+          git add -A binaries
           git commit -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')" || true
           git push --force origin main
