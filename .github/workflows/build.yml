@@ -27,40 +27,68 @@ jobs:
             out: audio_patcher_armv7
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache NDK
+        id: cache-ndk
+        uses: actions/cache@v4
+        with:
+          path: $HOME/android-ndk-r26d
+          key: ndk-r26d
+
       - name: Install NDK
+        if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
           wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
           unzip -q android-ndk-r26d-linux.zip -d $HOME
 
-      - name: Build (${{ matrix.arch }})
+      - name: Build
         run: |
-          DATE=$(date '+%Y-%m-%d %H:%M:%S')
+          NDK=$HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin
 
-          mkdir -p binaries
-
-          $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.tool }} \
-            main.c -o binaries/${{ matrix.out }} \
+          $NDK/${{ matrix.tool }} \
+            main.c -o ${{ matrix.out }} \
             -Os \
             -ffunction-sections -fdata-sections \
-            -fno-asynchronous-unwind-tables \
-            -fno-unwind-tables \
             -Wl,--gc-sections \
-            -DBUILD_DATE="\"$DATE\""
+            -DBUILD_DATE="\"$(date '+%Y-%m-%d %H:%M:%S')\""
 
-          $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
-            binaries/${{ matrix.out }}
+          $NDK/llvm-strip ${{ matrix.out }}
 
-      - name: Commit & Push
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: ${{ matrix.out }}
+
+  push:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Flatten
+        run: |
+          mkdir -p binaries
+          mv binaries/*/* binaries/ 2>/dev/null || true
+
+      - name: Commit & Force Push
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git add binaries
 
-          git commit --allow-empty -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')"
-          git push
+          git commit -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')" || true
+
+          git push --force origin main
