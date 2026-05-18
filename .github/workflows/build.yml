@@ -1,7 +1,4 @@
-name: build
-
-permissions:
-  contents: write
+name: android-matrix-build
 
 on:
   schedule:
@@ -9,6 +6,9 @@ on:
     - cron: "0 1 20 * *"
     - cron: "0 1 30 * *"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -27,10 +27,10 @@ jobs:
             out: audio_patcher_armv7
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install NDK
+      - name: Install Android NDK
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
@@ -38,7 +38,7 @@ jobs:
           unzip -q android-ndk-r26d-linux.zip -d $HOME
           echo "NDK=$HOME/android-ndk-r26d" >> $GITHUB_ENV
 
-      - name: Build ${{ matrix.arch }}
+      - name: Build binary (${{ matrix.arch }})
         run: |
           DATE=$(date '+%Y-%m-%d')
 
@@ -51,7 +51,7 @@ jobs:
             -Wl,--gc-sections \
             -DBUILD_DATE="\"$DATE\""
 
-      - name: Upload artifact per arch
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.out }}
@@ -70,17 +70,17 @@ jobs:
         with:
           path: binaries
 
-      - name: Flatten structure
+      - name: Flatten binaries folder
         run: |
-          mkdir -p binaries/final
-          find binaries -type f -exec mv {} binaries/final/ \;
+          mv binaries/*/* binaries/ 2>/dev/null || true
+          rm -rf binaries/*/ 2>/dev/null || true
 
       - name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add binaries/final
+          git add binaries
 
           git commit -m "update binaries $(date '+%Y-%m-%d')" || exit 0
           git push
