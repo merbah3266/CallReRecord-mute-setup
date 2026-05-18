@@ -30,15 +30,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Cache NDK
-        id: cache-ndk
-        uses: actions/cache@v4
-        with:
-          path: $HOME/android-ndk-r26d
-          key: ndk-r26d-linux
-
-      - name: Install NDK (if not cached)
-        if: steps.cache-ndk.outputs.cache-hit != 'true'
+      - name: Install NDK
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip
@@ -49,8 +41,10 @@ jobs:
         run: |
           DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
+          mkdir -p binaries
+
           $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.tool }} \
-            main.c -o ${{ matrix.out }} \
+            main.c -o binaries/${{ matrix.out }} \
             -Os \
             -ffunction-sections -fdata-sections \
             -fno-asynchronous-unwind-tables \
@@ -59,33 +53,9 @@ jobs:
             -DBUILD_DATE="\"$DATE\""
 
           $HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
-            ${{ matrix.out }}
+            binaries/${{ matrix.out }}
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.out }}
-          path: ${{ matrix.out }}
-
-  push:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries
-
-      - name: Flatten binaries
-        run: |
-          mv binaries/*/* binaries/ 2>/dev/null || true
-          rm -rf binaries/*/ 2>/dev/null || true
-
-      - name: Commit & Push (always)
+      - name: Commit & Push
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
