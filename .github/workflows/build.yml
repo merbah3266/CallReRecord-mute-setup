@@ -1,0 +1,83 @@
+name: build
+
+on:
+  schedule:
+    - cron: "0 1 10 * *"
+    - cron: "0 1 20 * *"
+    - cron: "0 1 30 * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            tool: aarch64-linux-android24-clang
+            out: audio_patcher_arm64
+
+          - arch: armv7
+            tool: armv7a-linux-androideabi24-clang
+            out: audio_patcher_armv7
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install NDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip -q android-ndk-r26d-linux.zip -d $HOME
+          echo "NDK=$HOME/android-ndk-r26d" >> $GITHUB_ENV
+
+      - name: Build ${{ matrix.arch }}
+        run: |
+          DATE=$(date '+%Y-%m-%d')
+
+          $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.tool }} \
+            main.c -o ${{ matrix.out }} \
+            -Os -s \
+            -ffunction-sections -fdata-sections \
+            -fno-asynchronous-unwind-tables \
+            -fno-unwind-tables \
+            -Wl,--gc-sections \
+            -DBUILD_DATE="\"$DATE\""
+
+      - name: Upload artifact per arch
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: ${{ matrix.out }}
+
+  push:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Flatten structure
+        run: |
+          mkdir -p binaries/final
+          find binaries -type f -exec mv {} binaries/final/ \;
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add binaries/final
+
+          git commit -m "update binaries $(date '+%Y-%m-%d')" || exit 0
+          git push
