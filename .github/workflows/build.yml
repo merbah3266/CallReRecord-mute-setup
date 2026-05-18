@@ -21,7 +21,6 @@ jobs:
           - arch: arm64
             tool: aarch64-linux-android24-clang
             out: audio_patcher_arm64
-
           - arch: armv7
             tool: armv7a-linux-androideabi24-clang
             out: audio_patcher_armv7
@@ -52,8 +51,23 @@ jobs:
           name: ${{ matrix.out }}
           path: ${{ matrix.out }}
 
-  push:
+  remove_old:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: |
+          mkdir -p binaries
+          rm -f binaries/* 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clean_binaries
+          path: binaries
+
+  push:
+    needs: remove_old
     runs-on: ubuntu-latest
 
     steps:
@@ -63,18 +77,22 @@ jobs:
         with:
           name: audio_patcher_arm64
           path: binaries
+        continue-on-error: true
 
       - uses: actions/download-artifact@v4
         with:
           name: audio_patcher_armv7
           path: binaries
+        continue-on-error: true
 
       - run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          rm -rf binaries
+
           mkdir -p binaries
-          cp -r artifacts/* binaries/ 2>/dev/null || true
+
           git add -A binaries
+
           git commit -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')" || true
+
           git push --force origin main
