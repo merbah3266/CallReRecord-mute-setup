@@ -42,7 +42,7 @@ jobs:
 
       - run: |
           NDK=$HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin
-          $NDK/${{ matrix.tool }} main.c -o ${{ matrix.out }} -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -DBUILD_DATE="\"$(date '+%Y-%m-%d %H:%M:%S')\""
+          $NDK/${{ matrix.tool }} main.c -o ${{ matrix.out }} -Os -ffunction-sections -fdata-sections -Wl,--gc-sections
           $NDK/llvm-strip ${{ matrix.out }}
 
       - uses: actions/upload-artifact@v4
