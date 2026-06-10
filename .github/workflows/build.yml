@@ -13,7 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
@@ -43,7 +42,7 @@ jobs:
 
       - run: |
           NDK=$HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin
-          $NDK/${{ matrix.tool }} main.c -o ${{ matrix.out }} -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -DBUILD_DATE="\"$(date '+%Y-%m-%d %H:%M:%S')\""
+          $NDK/${{ matrix.tool }} main.c -o ${{ matrix.out }} -Os -static
           $NDK/llvm-strip ${{ matrix.out }}
 
       - uses: actions/upload-artifact@v4
@@ -56,11 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - run: |
           mkdir -p binaries
           rm -f binaries/* 2>/dev/null || true
-
       - uses: actions/upload-artifact@v4
         with:
           name: clean_binaries
@@ -69,30 +66,22 @@ jobs:
   push:
     needs: remove_old
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: audio_patcher_arm64
           path: binaries
         continue-on-error: true
-
       - uses: actions/download-artifact@v4
         with:
           name: audio_patcher_armv7
           path: binaries
         continue-on-error: true
-
       - run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
           mkdir -p binaries
-
           git add -A binaries
-
-          git commit -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')" || true
-
+          git commit -m "update binaries" || true
           git push --force origin main
