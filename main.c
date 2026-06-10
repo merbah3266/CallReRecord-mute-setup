@@ -8,18 +8,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 
-#ifndef BUILD_DATE
-#define BUILD_DATE "unknown"
-#endif
-
-static const char build_info[] =
-"built by merbah3266 | build date: " BUILD_DATE;
-
-__attribute__((used))
-static void keep_build_info(void) {
-    asm volatile("" :: "r"(build_info));
-}
-
 #define RST "\033[0m"
 #define RED "\033[31m"
 #define GRN "\033[32m"
