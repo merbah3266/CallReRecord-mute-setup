@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     strategy:
       fail-fast: false
@@ -26,59 +26,70 @@ jobs:
             out: audio_patcher_armv7
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/cache@v4
         id: cache-ndk
         with:
           path: $HOME/android-ndk-r26d
-          key: ndk-r26d
+          key: ndk-r26d-ubuntu-26.04
 
       - if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
           sudo apt-get install -y wget unzip
           wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
           unzip -q android-ndk-r26d-linux.zip -d $HOME
+          rm -f android-ndk-r26d-linux.zip
 
       - run: |
           NDK=$HOME/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin
-          $NDK/${{ matrix.tool }} main.c -o ${{ matrix.out }} -Os -ffunction-sections -fdata-sections -Wl,--gc-sections
+
+          $NDK/${{ matrix.tool }} \
+            main.c \
+            -o ${{ matrix.out }} \
+            -Os \
+            -ffunction-sections \
+            -fdata-sections \
+            -Wl,--gc-sections
+
           $NDK/llvm-strip ${{ matrix.out }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.out }}
           path: ${{ matrix.out }}
+          if-no-files-found: error
 
   remove_old:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - run: |
           mkdir -p binaries
           rm -f binaries/* 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: clean_binaries
           path: binaries
 
   push:
     needs: remove_old
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: audio_patcher_arm64
           path: binaries
         continue-on-error: true
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: audio_patcher_armv7
           path: binaries
