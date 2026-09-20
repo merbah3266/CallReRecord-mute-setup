@@ -28,11 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: cache-ndk
         with:
           path: $HOME/android-ndk-r26d
-          key: ndk-r26d-ubuntu-26.04
+          key: ndk-r26d-${{ runner.os }}
 
       - if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
@@ -54,7 +54,7 @@ jobs:
 
           $NDK/llvm-strip ${{ matrix.out }}
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.out }}
           path: ${{ matrix.out }}
@@ -71,7 +71,7 @@ jobs:
           mkdir -p binaries
           rm -f binaries/* 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: clean_binaries
           path: binaries
@@ -87,22 +87,22 @@ jobs:
         with:
           name: audio_patcher_arm64
           path: binaries
-        continue-on-error: true
 
       - uses: actions/download-artifact@v5
         with:
           name: audio_patcher_armv7
           path: binaries
-        continue-on-error: true
 
       - run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           mkdir -p binaries
 
           git add -A binaries
 
-          git commit -m "update binaries $(date '+%Y-%m-%d %H:%M:%S')" || true
+          git commit \
+            -m "update binaries $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
+            || true
 
-          git push --force origin main
+          git push origin HEAD:main
